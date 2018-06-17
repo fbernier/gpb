@@ -236,6 +236,7 @@ format_nif_cc_local_function_decls(_Mod, Defs, _Opts) ->
 
 format_nif_cc_mk_atoms(_Mod, Defs, AnRes, Opts) ->
     Maps = gpb_lib:get_records_or_maps_by_opts(Opts) == maps,
+    MapsKeyType = gpb_lib:get_maps_key_type_by_opts(Opts),
     EnumAtoms = lists:flatten([[Sym || {Sym, _V} <- EnumDef]
                                || {{enum, _}, EnumDef} <- Defs]),
     RecordAtoms = [MsgName
@@ -273,13 +274,29 @@ format_nif_cc_mk_atoms(_Mod, Defs, AnRes, Opts) ->
     FieldAtomVars = [{mk_c_var(gpb_fa_, minus_to_m(A)), A} || A <- FieldAtoms],
     [[?f("static ERL_NIF_TERM ~s;\n", [Var]) || {Var,_Atom} <- AtomVars1],
      [?f("static ERL_NIF_TERM ~s;\n", [Var]) || {Var,_Atom} <- FieldAtomVars],
+     if Maps, MapsKeyType == binary ->
+             [?f("static ErlNifBinary nb_~s;\n", [Var])
+              || {Var, _Atom} <- FieldAtomVars];
+        true ->
+             ""
+     end,
      "\n",
      ["static void install_atoms(ErlNifEnv *env)\n"
       "{\n",
       [?f("    ~s = enif_make_atom(env, \"~s\");\n", [AtomVar, Atom])
        || {AtomVar, Atom} <- AtomVars1],
-      [?f("    ~s = enif_make_atom(env, \"~s\");\n", [AtomVar, Atom])
-       || {AtomVar, Atom} <- FieldAtomVars],
+      if Maps, MapsKeyType == binary ->
+              [?f("    nb_~s.data = (unsigned char *)\"~s\";~n"
+                  "    nb_~s.size = ~w;~n"
+                  "    ~s = enif_make_binary(env, &nb_~s);\n",
+                  [AtomVar, Atom,
+                   AtomVar, length(atom_to_list(Atom)),
+                   AtomVar, AtomVar])
+               || {AtomVar, Atom} <- FieldAtomVars];
+         true ->
+              [?f("    ~s = enif_make_atom(env, \"~s\");\n", [AtomVar, Atom])
+               || {AtomVar, Atom} <- FieldAtomVars]
+      end,
       "}\n",
       "\n"]].
 

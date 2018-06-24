@@ -62,7 +62,7 @@ tmp/%_r.erl: %.proto
 
 tmp/%_mo.erl: %.proto
 	[ -d tmp ] || mkdir tmp
-	$(call gpb-compile,_mo,-maps -maps_unset_optional omitted,$<)
+	$(call gpb-compile,_mo,-maps -maps_unset_optional omitted -maps_key_type binary,$<)
 
 tmp/%_mp.erl: %.proto
 	[ -d tmp ] || mkdir tmp
